@@ -23,6 +23,7 @@ package simdjson
 import (
 	"bytes"
 	"encoding/binary"
+	"errors"
 	"fmt"
 )
 
@@ -114,13 +115,16 @@ func parseString(pj *ParsedJson, idx uint64, maxStringSize uint64) bool {
 	return true
 }
 
-func addNumber(buf []byte, pj *ParsedJson) bool {
+func addNumber(buf []byte, pj *ParsedJson) (bool, error) {
 	tag, val, flags := parseNumber(buf)
 	if tag == TagEnd {
-		return false
+		return false, nil
+	}
+	if FloatFlags(flags).Contains(FloatOverflowedInteger) {
+		return false, errors.New("integer overflow")
 	}
 	pj.writeTapeTagValFlags(tag, val, flags)
-	return true
+	return true, nil
 }
 
 func isValidTrueAtom(buf []byte) bool {
@@ -165,7 +169,7 @@ func isValidNullAtom(buf []byte) bool {
 	return false
 }
 
-func unifiedMachine(buf []byte, pj *internalParsedJson) bool {
+func unifiedMachine(buf []byte, pj *internalParsedJson) (bool, error) {
 
 	const addOneForRoot = 1
 
@@ -282,12 +286,20 @@ object_key_state:
 		pj.write_tape(0, buf[idx])
 
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
-		if !addNumber(buf[idx:], &pj.ParsedJson) {
+		added, err := addNumber(buf[idx:], &pj.ParsedJson)
+		if err != nil {
+			return false, err
+		}
+		if !added {
 			goto fail
 		}
 
 	case '-':
-		if !addNumber(buf[idx:], &pj.ParsedJson) {
+		added, err := addNumber(buf[idx:], &pj.ParsedJson)
+		if err != nil {
+			return false, err
+		}
+		if !added {
 			goto fail
 		}
 
@@ -388,7 +400,11 @@ mainArraySwitch:
 		/* goto array_continue */
 
 	case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9', '-':
-		if !addNumber(buf[idx:], &pj.ParsedJson) {
+		added, err := addNumber(buf[idx:], &pj.ParsedJson)
+		if err != nil {
+			return false, err
+		}
+		if !added {
 			goto fail
 		}
 
@@ -434,17 +450,17 @@ succeed:
 
 	// Sanity checks
 	if len(pj.containingScopeOffset) != 0 {
-		return false
+		return false, nil
 	}
 
 	pj.annotate_previousloc(offset>>retAddressShift, pj.get_current_loc()+addOneForRoot)
 	pj.write_tape(offset>>retAddressShift, 'r') // r is root
 
 	pj.isvalid = true
-	return true
+	return true, nil
 
 fail:
-	return false
+	return false, nil
 }
 
 // structural chars here are

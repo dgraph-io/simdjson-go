@@ -86,7 +86,16 @@ func (pj *internalParsedJson) parseMessageInternal(msg []byte, ndjson bool) (err
 		wg.Done()
 	}()
 	go func() {
-		if !unifiedMachine(pj.Message, pj) {
+		var parsed bool
+		parsed, err = unifiedMachine(pj.Message, pj)
+		if err != nil {
+			// drain the channel until empty
+			for range pj.indexChans {
+			}
+			wg.Done()
+			return
+		}
+		if !parsed {
 			err = errors.New("Bad parsing while executing stage 2")
 			// drain the channel until empty
 			for range pj.indexChans {
