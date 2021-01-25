@@ -233,7 +233,7 @@ func TestParseNumber(t *testing.T) {
 	}
 
 	for _, tc := range testCases {
-		tag, val, flags := parseNumber([]byte(fmt.Sprintf(`%s:`, tc.input)))
+		tag, val, flags, _ := parseNumber([]byte(fmt.Sprintf(`%s:`, tc.input)))
 		if tag != tc.wantTag {
 			t.Errorf("TestParseNumber: got: %v want: %v", tag, tc.wantTag)
 		}
@@ -304,7 +304,7 @@ func TestParseInt64(t *testing.T) {
 		test := &parseInt64Tests[i]
 		t.Run(test.in, func(t *testing.T) {
 
-			tag, val, _ := parseNumber([]byte(fmt.Sprintf(`%s:`, test.in)))
+			tag, val, _, _ := parseNumber([]byte(fmt.Sprintf(`%s:`, test.in)))
 			if tag != test.tag {
 				// Ignore intentionally bad syntactical errors
 				t.Errorf("TestParseInt64: got: %v want: %v", tag, test.tag)
@@ -487,7 +487,7 @@ func TestParseFloat64(t *testing.T) {
 	for i := 0; i < len(atoftests); i++ {
 		test := &atoftests[i]
 		t.Run(test.in, func(t *testing.T) {
-			tag, val, _ := parseNumber([]byte(fmt.Sprintf(`%s:`, test.in)))
+			tag, val, _, _ := parseNumber([]byte(fmt.Sprintf(`%s:`, test.in)))
 			switch tag {
 			case TagEnd:
 				if test.err == nil {

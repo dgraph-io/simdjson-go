@@ -23,7 +23,6 @@ package simdjson
 import (
 	"bytes"
 	"encoding/binary"
-	"errors"
 	"fmt"
 )
 
@@ -116,12 +115,12 @@ func parseString(pj *ParsedJson, idx uint64, maxStringSize uint64) bool {
 }
 
 func addNumber(buf []byte, pj *ParsedJson) (bool, error) {
-	tag, val, flags := parseNumber(buf)
+	tag, val, flags, pos := parseNumber(buf)
 	if tag == TagEnd {
 		return false, nil
 	}
 	if FloatFlags(flags).Contains(FloatOverflowedInteger) {
-		return false, errors.New("integer overflow")
+		return false, fmt.Errorf(`simdjson-go: parsing: "%s": value out of range`, string(buf[:pos]))
 	}
 	pj.writeTapeTagValFlags(tag, val, flags)
 	return true, nil

@@ -64,14 +64,13 @@ var isNumberRune = [256]uint8{
 // parseNumber will parse the number starting in the buffer.
 // Any non-number characters at the end will be ignored.
 // Returns TagEnd if no valid value found be found.
-func parseNumber(buf []byte) (tag Tag, val, flags uint64) {
-	pos := 0
+func parseNumber(buf []byte) (tag Tag, val, flags uint64, pos int) {
 	found := uint8(0)
 	for i, v := range buf {
 		t := isNumberRune[v]
 		if t == 0 {
 			//fmt.Println("aborting on", string(v), "in", string(buf[:i]))
-			return TagEnd, 0, 0
+			return TagEnd, 0, 0, pos
 		}
 		if t == isEOVFlag {
 			break
@@ -79,14 +78,14 @@ func parseNumber(buf []byte) (tag Tag, val, flags uint64) {
 		if t&isMustHaveDigitNext > 0 {
 			// A period and minus must be followed by a digit
 			if len(buf) < i+2 || isNumberRune[buf[i+1]]&isDigitFlag == 0 {
-				return TagEnd, 0, 0
+				return TagEnd, 0, 0, pos
 			}
 		}
 		found |= t
 		pos = i + 1
 	}
 	if pos == 0 {
-		return TagEnd, 0, 0
+		return TagEnd, 0, 0, pos
 	}
 	const maxIntLen = 20
 
@@ -95,17 +94,17 @@ func parseNumber(buf []byte) (tag Tag, val, flags uint64) {
 		if found&isMinusFlag == 0 {
 			if pos > 1 && buf[0] == '0' {
 				// Integers cannot have a leading zero.
-				return TagEnd, 0, 0
+				return TagEnd, 0, 0, pos
 			}
 		} else {
 			if pos > 2 && buf[1] == '0' {
 				// Integers cannot have a leading zero after minus.
-				return TagEnd, 0, 0
+				return TagEnd, 0, 0, pos
 			}
 		}
 		i64, err := strconv.ParseInt(string(buf[:pos]), 10, 64)
 		if err == nil {
-			return TagInteger, uint64(i64), 0
+			return TagInteger, uint64(i64), 0, pos
 		}
 		if errors.Is(err, strconv.ErrRange) {
 			flags |= uint64(FloatOverflowedInteger)
@@ -114,7 +113,7 @@ func parseNumber(buf []byte) (tag Tag, val, flags uint64) {
 		if found&isMinusFlag == 0 {
 			u64, err := strconv.ParseUint(string(buf[:pos]), 10, 64)
 			if err == nil {
-				return TagUint, u64, 0
+				return TagUint, u64, 0, pos
 			}
 			if errors.Is(err, strconv.ErrRange) {
 				flags |= uint64(FloatOverflowedInteger)
@@ -126,11 +125,11 @@ func parseNumber(buf []byte) (tag Tag, val, flags uint64) {
 
 	if pos > 1 && buf[0] == '0' && isNumberRune[buf[1]]&isFloatOnlyFlag == 0 {
 		// Float can only have have a leading 0 when followed by a period.
-		return TagEnd, 0, 0
+		return TagEnd, 0, 0, pos
 	}
 	f64, err := strconv.ParseFloat(string(buf[:pos]), 64)
 	if err == nil {
-		return TagFloat, math.Float64bits(f64), flags
+		return TagFloat, math.Float64bits(f64), flags, pos
 	}
-	return TagEnd, 0, 0
+	return TagEnd, 0, 0, pos
 }
