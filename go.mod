@@ -1,4 +1,4 @@
-module github.com/minio/simdjson-go
+module github.com/dgraph-io/simdjson-go
 
 go 1.13
 
